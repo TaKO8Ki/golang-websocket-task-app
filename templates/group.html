@@ -1,0 +1,235 @@
+<html>
+    <head>
+        <title>
+            リアルタイムなタスク管理アプリ
+        </title>
+        <link rel="stylesheet" type="text/css" href="/resources/css/main.css" />
+        <link rel="stylesheet" media="screen" href="https://fonts.googleapis.com/css?family=Noto+Sans+JP:400,500|Rubik:400,500&amp;amp;subset=japanese">
+        <link href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1 ,viewport-fit=cover">
+    </head>
+    <body>
+        <div class="all-tasks">
+            <h2 class="title">リアルタイムなタスク管理アプリ</h2>
+            <div>
+                <form id="task-form">
+                    <div>
+                        <div>
+                            <input type="text" name="name" size="20" id="name" class="text" placeholder="アサインするユーザー">
+                        </div>
+                        <div>
+                            <input type="text" name="name" size="20" id="detail" class="text" placeholder="タスクの内容">
+                        </div>
+                    </div>
+                    <input type="submit" value="作成" class="btn btn-success" />                
+                </form>
+            </div>
+            <div class="container panel panel-info">
+                <div class="panel-body">
+                    <ul id="tasks">
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js">
+        </script>
+        <script>
+            $(function(){
+                var socket   = null;
+                var name     = $("#name");              // 入力された名前
+                var task_detail   = $("#task-form #detail");  // 入力されたメッセージ
+                var tasks = $("#tasks");          // チャット表示スペース
+
+                 /* 初回起動時の処理 */
+                 // websocket未対応のブラウザであれば、チャット機能は使えない
+                 if(!window["WebSocket"]){
+                    alert("WebSocketに対応していないブラウザです。");
+                    return false;
+                // websocketに対応しているブラウザの場合
+                } else {
+                    /* socketの開設 */
+                    socket = new WebSocket("ws://localhost:8080/room");
+
+                    // メッセージ受信時の処理を実装
+                    socket.onmessage = function(e) {
+                        var task = eval("("+e.data+")");
+                        if (Array.prototype.slice.call(document.getElementById('tasks').children).length > 0) {
+                            var last_task_id = Number(Array.prototype.slice.call(document.getElementById('tasks').children).map(x => x.id)[0].replace("task", ""));
+                        } else {
+                            var last_task_id = 0;
+                        }
+                        if (task.Delete === 'hoge') {
+                            tasks.prepend(
+                                $("<li id='task" + (last_task_id + 1) + "'>").append(
+                                    $("<i class='far fa-check-circle fa-2x check-icon'></i>"),
+                                    $("<p class='detail'>").text(task.Detail),
+                                    $("<p class='name'>").text('@' + task.Name)
+                                )
+                            );
+                        } else {
+                            document.getElementById(task.Delete).remove()
+                        }
+                    }
+
+                    // socket終了時の処理を実装
+                    socket.onclose = function() {
+                        //alert("websocket通信が終了しました。");
+                    }
+                }              
+
+                /* 送信ボタン押下時の挙動 */
+                $("#task-form").submit(function(){
+                    // エラーチェック
+                    if (!task_detail.val()) {
+                        alert("入力がありません。"); return false;
+                    }
+
+                    if (!socket){
+                        alert("websocketに対応していません。"); return false;                        
+                    }
+
+                    /* socketにデータを送る */
+                    socket.send(JSON.stringify({
+                        "Detail": task_detail.val(), // 入力されたメッセージ
+                        "Name": name.val(),       // 入力された名前
+                        "Delete": "hoge"
+                    }));
+                    // メッセージボックスはリセットする
+                    task_detail.val("");
+                    return false;
+                });
+                regex = new RegExp();
+
+                /* 削除ボタンクリックでその要素削除 */
+                $(document).on("click", 'ul#tasks li .check-icon', function(){
+                    var target_id =  $(this).parent().attr("id");
+                    if (!socket){
+                        alert("websocketに対応していません。"); return false;                        
+                    }
+                    console.log($(this).parent().attr('id'))
+                    $(this).parent().addClass('task-complete')
+                    $(this).addClass('check-icon-clicked')
+                    setTimeout(
+                        function(){
+                        socket.send(JSON.stringify({
+                            "Delete": target_id
+                        }))},
+                        "700"
+                    );
+                });
+
+            });
+        </script>
+
+        <style type="text/css">
+            body {
+                background: #edf2f7;
+                font-family: Rubik, "Noto Sans JP", sans-serif;
+            }
+            div.all-tasks {
+                width: 85%;
+                margin: 0 auto;
+                margin-top: 50px;
+                padding: 20px;
+                border-radius: 10px;
+                background: #fff;
+                box-shadow: 0 20px 30px -15px rgba(0,0,0,0.08);
+                border-top: solid 10px #329eff;
+            }
+            ul#tasks {
+                list-style: none;
+                padding-left: 0px;
+            }
+            ul#tasks li {
+                border-bottom: solid 1px #ddd;
+                display: flex;
+                justify-content: space-around;
+                background-color: #fff;
+                background-size: 200% 100%;	
+                background-image: -webkit-linear-gradient(left, transparent 50%, #ffbe7e 50%);	
+                background-image: linear-gradient(to right, transparent 50%, #ffbe7e 50%);
+                -webkit-transition: background-position .3s cubic-bezier(0.19, 1, 0.22, 1) .1s, color .5s ease 0s, background-color .5s ease;
+                transition: background-position .3s cubic-bezier(0.19, 1, 0.22, 1) .1s, color .5s ease 0s, background-color .5s 
+            }
+            .task-complete {
+                opacity: 0.5;
+                background-position: -100% 100%;
+                margin-left: -20px;
+                margin-right: -20px;
+                padding: 0px 20px;
+            }
+            ul#tasks li:hover {
+                margin-left: -20px;
+                margin-right: -20px;
+                padding: 0px 20px;
+            }
+            ul#tasks li p.name {
+                text-align: right;
+            }
+            ul#tasks li p.detail {
+                word-break: break-word;
+                flex: 1;
+            }
+            input#name {
+                height: 40px;
+                border: solid 1px #ddd;
+                border-radius: 3px;
+                padding: 0px 10px;
+                font-size: 18px;
+                outline: none;
+                margin-bottom: 10px;
+                width: 60%;
+            }
+            input#name:focus {
+                border: solid 1px #b7bfc6;
+            }
+            input#detail {
+                height: 40px;
+                border: solid 1px #ddd;
+                border-radius: 3px;
+                padding: 0px 10px;
+                font-size: 18px;
+                outline: none;
+                margin-bottom: 10px;
+                width: 60%;
+            }
+            input#detail:focus {
+                border: solid 1px #b7bfc6;
+            }
+            input.btn {
+                display: inline-block;
+                background: #329eff;
+                border: none;
+                color: #fff;
+                padding: 5px 20px;
+                font-size: 15px;
+                border-radius: 3px;
+                outline: none;
+                cursor: pointer;
+            }
+            input.btn:hover {
+                opacity: 0.8;
+            }
+            h2.title {
+                border-bottom: solid 1px #ddd;
+                padding-bottom: 15px;
+                margin-bottom: 30px;
+            }
+            .check-icon {
+                padding-top: 12px;
+                margin-right: 10px;
+                color: #ddd;
+                cursor: pointer;
+            }
+            .check-icon:hover {
+                color: #ffbe7e;
+            }
+            .check-icon-clicked {
+                color: #fff;
+            }
+            .check-icon-clicked:hover {
+                color: #fff;
+            }
+        </style>
+    </body>
+</html>
