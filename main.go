@@ -7,15 +7,10 @@ import (
 
 func main() {
 
-	/* ルートへのアクセスに対してハンドラを貼り、chat.htmlをサーブする */
+	/* ルートへのアクセスに対してハンドラを貼り、group.htmlをサーブする */
 	http.Handle("/", &templateHandler{filename: "/group.html"})
 
-	/* チャットルームを作成する */
 	group := newRoom()
-
-	/* チャットルームへのハンドラを貼る。
-	   /room へは、chat.html から遷移する。groupに実装されたServeHTTPは
-		 websocketの実装とclientの生成を行う。 */
 
 	http.Handle("/room", group)
 
